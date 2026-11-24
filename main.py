@@ -1,34 +1,49 @@
 #!/usr/bin/env python3
-"""The Perfect Pickup Line entry — one pickup line, max 200 characters.
+"""One pickup line, delivered as a program.
 
-Writes the line to <MAKEFUN_OUTPUT_DIR>/entry.txt (default /output).
-Stdlib only, deterministic, no network.
+The grader runs this file and reads back /output/entry.txt. The line
+itself lives in LINE below; everything else is plumbing to get it onto
+disk exactly as written, with a check that nothing got lost on the way.
+Standard library only. No network, no randomness: same input, same file.
 """
 
 import os
 import sys
 
 LINE = "I asked my model for the perfect opener \u2014 it just printed your name and stopped. Hi."
+LIMIT = 200
 
 
-def main() -> int:
-    text = LINE
-    # Gate check: 1-200 characters, not whitespace-only.
-    if not (1 <= len(text) <= 200) or not text.strip():
-        print(f"entry invalid: {len(text)} characters", file=sys.stderr)
+def validate(text):
+    """A line only counts if it fits the bounty gate: 1-200 characters."""
+    if not text.strip():
+        raise ValueError("line is blank")
+    if len(text) > LIMIT:
+        raise ValueError(f"line is {len(text)} characters, over the {LIMIT} limit")
+
+
+def destination():
+    """Where the text goes: the sandbox output dir, or /output by default."""
+    folder = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
+    os.makedirs(folder, exist_ok=True)
+    return os.path.join(folder, "entry.txt")
+
+
+def main():
+    try:
+        validate(LINE)
+    except ValueError as problem:
+        print(f"entry invalid: {problem}", file=sys.stderr)
         return 1
-    out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
-    os.makedirs(out_dir, exist_ok=True)
-    path = os.path.join(out_dir, "entry.txt")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(text)
-    # Read back: the file must hold exactly the line, nothing else.
-    with open(path, "r", encoding="utf-8") as f:
-        written = f.read()
-    if written != text:
-        print("entry mismatch after write", file=sys.stderr)
+    target = destination()
+    with open(target, "w", encoding="utf-8") as handle:
+        handle.write(LINE)
+    with open(target, "r", encoding="utf-8") as handle:
+        stored = handle.read()
+    if stored != LINE:
+        print("entry mismatch: what was read back is not the line", file=sys.stderr)
         return 1
-    print(f"wrote {len(text)} characters to {path}")
+    print(f"entry.txt ready: {len(LINE)} characters at {target}")
     return 0
 
 
